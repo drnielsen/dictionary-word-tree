@@ -1,0 +1,6 @@
+[package]
+name = "mirror-words"
+version = "0.1.0"
+authors = ["Dane R. Nielsen <dane@danernielsen.com>"]
+
+[dependencies]
