@@ -11,7 +11,6 @@ mod word_lineage;
 
 fn main() {
     println!("{}", "Opening file");
-    //let f = File::open("/Users/drnielsen/Development/misc/english-words/words_alpha.txt").unwrap();
     let f = File::open("/usr/share/dict/words").unwrap();
     let buffered_reader = BufReader::new(f);
 
