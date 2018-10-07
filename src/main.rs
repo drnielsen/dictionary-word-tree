@@ -2,12 +2,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::collections::HashSet;
 use std::io::prelude::*;
-use std::fmt;
 use std::iter::Iterator;
-use std::cmp::Ordering;
-use std::cmp::min;
 use std::error::Error;
 use std::path::Path;
+
+mod word_lineage;
 
 
 fn main() {
@@ -95,20 +94,20 @@ fn main() {
     }
 }
 
-fn build_word_tree(dictionary: &HashSet<String>, lineage_list: &Vec<&String>, iterations: i32) -> Vec<WordLineage> {
-    let mut pipeline: Box<Iterator<Item=WordLineage>> = Box::new(lineage_list.iter().map(|x| WordLineage::new().init(x)));
+fn build_word_tree(dictionary: &HashSet<String>, lineage_list: &Vec<&String>, iterations: i32) -> Vec<word_lineage::Lineage> {
+    let mut pipeline: Box<Iterator<Item=word_lineage::Lineage>> = Box::new(lineage_list.iter().map(|x| word_lineage::Lineage::new().init(x)));
 
     for _ in 0..iterations {
         pipeline = Box::new(pipeline.flat_map(|word| create_word_permutations(&word))
                 .filter(|word_lineage| is_a_word(word_lineage.get_latest_word(), &dictionary)));
     }
-    let mut result: Vec<WordLineage> = pipeline.collect();
+    let mut result: Vec<word_lineage::Lineage> = pipeline.collect();
     result.sort_unstable();
     result.dedup();
     result
 }
 
-fn create_word_permutations(lineage_to_permutate: &WordLineage) -> Vec<WordLineage> {
+fn create_word_permutations(lineage_to_permutate: &word_lineage::Lineage) -> Vec<word_lineage::Lineage> {
     let mut permutations: Vec<String> = Vec::new();
     let str_to_mutate = lineage_to_permutate.get_latest_word();
 
@@ -119,117 +118,10 @@ fn create_word_permutations(lineage_to_permutate: &WordLineage) -> Vec<WordLinea
     }
 
     permutations.into_iter().map(|word| {
-        WordLineage::new().extend_lineage(lineage_to_permutate, &word)
+        word_lineage::Lineage::new().extend_lineage(lineage_to_permutate, &word)
     }).collect()
 }
 
 fn is_a_word(str_to_check: &str, list_of_words: &HashSet<String>) -> bool {
     list_of_words.contains(str_to_check)
 }
-
-#[derive(Eq)]
-struct WordLineage {
-    lineage: Vec<String>,
-}
-
-impl WordLineage {
-    fn new() -> WordLineageBuilder {
-        WordLineageBuilder{ word_lineage: WordLineage { lineage: Vec::new() } }
-    }
-
-    /// Get the most recent word from this lineage
-    fn get_latest_word(&self) -> &str {
-        &self.lineage[self.lineage.len()-1]
-    }
-
-    /// Get the original word from this lineage
-    fn get_original_word(&self) -> &str {
-        &self.lineage[0]
-    }
-
-    fn get_dot_file_instructions(&self) -> Vec<String> {
-        let mut instructions = Vec::new();
-        for x in 0..self.lineage.len()-1 {
-            let mut instruct = self.lineage[x].to_string();
-            instruct.push_str(" -> ");
-            instruct.push_str(&self.lineage[x+1]);
-            instructions.push(instruct);
-        }
-        instructions
-    }
-}
-
-impl Ord for WordLineage {
-    fn cmp(&self, other: &WordLineage) -> Ordering {
-        for x in 0..min(self.lineage.len(), other.lineage.len()) {
-            if self.lineage[x] != other.lineage[x] {
-                return self.lineage[x].cmp(&other.lineage[x])
-            }
-        }
-        return self.lineage.len().cmp(&other.lineage.len())
-    }
-}
-
-impl PartialOrd for WordLineage {
-    fn partial_cmp(&self, other: &WordLineage) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for WordLineage {
-    fn eq(&self, other: &WordLineage) -> bool {
-        if self.lineage.len() != other.lineage.len() {
-            return false
-        } else {
-            for x in 0..self.lineage.len()-1 {
-                if self.lineage[x] != other.lineage[x] {
-                    return false
-                }
-            }
-            return true
-        }
-    }
-}
-
-impl Clone for WordLineage {
-    fn clone(&self) -> WordLineage {
-        WordLineage { lineage: self.lineage.clone() }
-    }
-}
-
-impl fmt::Display for WordLineage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut it = self.lineage.iter();
-        let mut output = String::new();
-        
-        match it.next() {
-            None => output.push_str("Lineage is empty"),
-            Some(first_word) => {
-                output.push_str(first_word);
-                it.for_each(|x| {
-                    output.push_str(" -> ");
-                    output.push_str(x);
-                });
-            },
-        };
-        write!(f, "{}", output)
-    }
-}
-
-struct WordLineageBuilder {
-    word_lineage: WordLineage,
-}
-
-impl WordLineageBuilder {
-    fn extend_lineage(mut self, previous_lineage: &WordLineage, next_word: &str) -> WordLineage {
-        self.word_lineage.lineage.append(&mut previous_lineage.lineage.clone());
-        self.word_lineage.lineage.push(next_word.to_string());
-        self.word_lineage
-    }
-
-    fn init(mut self, initial_word: &str) -> WordLineage {
-        self.word_lineage.lineage.push(initial_word.to_string());
-        self.word_lineage
-    }
-}
-
