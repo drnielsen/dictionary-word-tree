@@ -1,5 +1,5 @@
 [package]
-name = "mirror-words"
+name = "dictionary-word-tree"
 version = "0.1.0"
 authors = ["Dane R. Nielsen <dane@danernielsen.com>"]
 
